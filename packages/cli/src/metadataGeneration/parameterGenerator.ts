@@ -290,7 +290,7 @@ export class ParameterGenerator {
           description: property.description,
           example: property.example,
           in: commonProperties.in,
-          name: `${commonProperties.name as string}[${property.name}]`,
+          name: property.name,
           parameterName: commonProperties.parameterName,
           required: property.required,
           validators: property.validators,
