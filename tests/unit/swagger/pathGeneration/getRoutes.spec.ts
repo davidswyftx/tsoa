@@ -183,13 +183,6 @@ describe('GET route generation', () => {
     expect(voidResponse).to.not.haveOwnProperty('content');
   });
 
-  it('should reject complex types as arguments', () => {
-    expect(() => {
-      const invalidMetadata = new MetadataGenerator('./fixtures/controllers/invalidGetController.ts').Generate();
-      new SpecGenerator2(invalidMetadata, getDefaultExtendedOptions()).GetSpec();
-    }).to.throw("@Query('myModel') Can't support 'refObject' type. \n in 'InvalidGetTestController.getModelWithComplex'");
-  });
-
   it('should reject invalid header types', () => {
     expect(() => {
       new MetadataGenerator('./fixtures/controllers/invalidHeaderController.ts').Generate();
