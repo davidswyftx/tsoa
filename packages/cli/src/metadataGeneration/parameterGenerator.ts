@@ -242,11 +242,40 @@ export class ParameterGenerator {
     };
   }
 
+  private validateQueryParameters(parameter: ts.ParameterDeclaration, properties: Tsoa.Parameter): Tsoa.ArrayParameter[] | undefined {
+    if (this.getQueryParamterIsHidden(parameter)) {
+      if (properties.required) {
+        throw new GenerateMetadataError(`@Query('${properties.parameterName}') Can't support @Hidden because it is required (does not allow undefined and does not have a default value).`);
+      }
+      return [];
+    }
+
+    if (properties.type.dataType === 'array') {
+      const arrayType = properties.type;
+      if (!this.supportPathDataType(arrayType.elementType)) {
+        throw new GenerateMetadataError(`@Query('${properties.parameterName}') Can't support array '${arrayType.elementType.dataType}' type.`);
+      }
+      return [
+        {
+          ...properties,
+          collectionFormat: 'multi',
+          type: arrayType,
+        } as Tsoa.ArrayParameter,
+      ];
+    }
+
+    if (!this.supportPathDataType(properties.type)) {
+      throw new GenerateMetadataError(`@Query('${properties.parameterName}') Can't support '${properties.type.dataType}' type.`);
+    }
+
+    return undefined;
+  }
+
   private getQueryParameters(parameter: ts.ParameterDeclaration): Tsoa.Parameter[] {
     const parameterName = (parameter.name as ts.Identifier).text;
     const type = this.getValidatedType(parameter);
 
-    const commonProperties = {
+    const commonProperties: Tsoa.Parameter = {
       default: getInitializerValue(parameter.initializer, this.current.typeChecker, type),
       description: this.getParameterDescription(parameter),
       example: this.getParameterExample(parameter, parameterName).examples,
@@ -256,39 +285,51 @@ export class ParameterGenerator {
       required: !parameter.questionToken && !parameter.initializer,
       validators: getParameterValidators(this.parameter, parameterName),
       deprecated: this.getParameterDeprecation(parameter),
+      type,
     };
 
-    if (this.getQueryParamterIsHidden(parameter)) {
-      if (commonProperties.required) {
-        throw new GenerateMetadataError(`@Query('${parameterName}') Can't support @Hidden because it is required (does not allow undefined and does not have a default value).`);
+    const validatedProps = this.validateQueryParameters(parameter, commonProperties);
+    if (validatedProps) {
+      return validatedProps;
+    }
+
+    const walkSubProperties = (type: Tsoa.RefObjectType) => {
+      let properties: Tsoa.Parameter[] = [];
+
+      for (const property of type.properties) {
+        if ((property.type as Tsoa.RefObjectType).properties?.length) {
+          properties = properties.concat(walkSubProperties(property.type as Tsoa.RefObjectType));
+        } else {
+          const subCommonProperties: Tsoa.Parameter = {
+            default: property.default,
+            description: property.description,
+            example: property.example as any,
+            in: commonProperties.in,
+            name: property.name,
+            parameterName: commonProperties.parameterName,
+            required: property.required,
+            validators: property.validators,
+            deprecated: property.deprecated,
+            type: property.type,
+          };
+
+          const validatedProps = this.validateQueryParameters(parameter, subCommonProperties);
+          if (validatedProps) {
+            properties.push(validatedProps[0]);
+          } else {
+            properties.push(subCommonProperties);
+          }
+        }
       }
-      return [];
+
+      return properties;
+    };
+
+    if ((type as Tsoa.RefObjectType).properties?.length) {
+      return walkSubProperties(type as Tsoa.RefObjectType);
     }
 
-    if (type.dataType === 'array') {
-      const arrayType = type;
-      if (!this.supportPathDataType(arrayType.elementType)) {
-        throw new GenerateMetadataError(`@Query('${parameterName}') Can't support array '${arrayType.elementType.dataType}' type.`);
-      }
-      return [
-        {
-          ...commonProperties,
-          collectionFormat: 'multi',
-          type: arrayType,
-        } as Tsoa.ArrayParameter,
-      ];
-    }
-
-    if (!this.supportPathDataType(type)) {
-      throw new GenerateMetadataError(`@Query('${parameterName}') Can't support '${type.dataType}' type.`);
-    }
-
-    return [
-      {
-        ...commonProperties,
-        type,
-      },
-    ];
+    return [commonProperties];
   }
 
   private getPathParameter(parameter: ts.ParameterDeclaration): Tsoa.Parameter {
@@ -376,7 +417,7 @@ export class ParameterGenerator {
   }
 
   private supportPathDataType(parameterType: Tsoa.Type) {
-    const supportedPathDataTypes: Tsoa.TypeStringLiteral[] = ['string', 'integer', 'long', 'float', 'double', 'date', 'datetime', 'buffer', 'boolean', 'enum', 'refEnum', 'file', 'any'];
+    const supportedPathDataTypes: Tsoa.TypeStringLiteral[] = ['string', 'integer', 'long', 'float', 'double', 'date', 'datetime', 'buffer', 'boolean', 'enum', 'refEnum', 'file', 'any', 'refObject'];
     if (supportedPathDataTypes.find(t => t === parameterType.dataType)) {
       return true;
     }

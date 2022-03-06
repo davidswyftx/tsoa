@@ -1,6 +1,18 @@
 import { Body, BodyProp, Get, Header, Path, Post, Query, Request, Route, Res, TsoaResponse, Deprecated } from '@tsoa/runtime';
 import { Gender, ParameterTestModel } from '../testModel';
 
+interface PagingParams {
+  before?: number;
+  after?: number;
+}
+
+interface FilterParams {
+  page?: number;
+  sort?: 'ASC' | 'DESC';
+  limit: number;
+  paging?: PagingParams;
+}
+
 @Route('ParameterTest')
 export class ParameterController {
   /**
@@ -257,6 +269,16 @@ export class ParameterController {
       lastname,
       weight,
     });
+  }
+
+  /**
+   * Example filter parameter
+   *
+   * @example filter "FilterParams"
+   */
+  @Get('Example/Filter')
+  public async filter(@Query() filter: FilterParams): Promise<void> {
+    return;
   }
 
   @Get('ParamaterQueyAnyType')
