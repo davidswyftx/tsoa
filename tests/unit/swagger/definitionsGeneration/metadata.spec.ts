@@ -764,6 +764,44 @@ describe('Metadata generation', () => {
       const deprecatedParam2 = method.parameters[2];
       expect(deprecatedParam2.deprecated).to.be.true;
     });
+
+    it('should generate refObject query parameter', () => {
+      const method = controller.methods.find(m => m.name === 'filter');
+      if (!method) {
+        throw new Error('Method example not defined!');
+      }
+
+      expect(method.parameters.length).to.equal(5);
+
+      const pageParam = method.parameters[0];
+      expect(pageParam.name).to.equal('page');
+      expect(pageParam.type).not.to.be.undefined;
+      expect(pageParam.type.dataType).to.equal('double');
+      expect(pageParam.required).to.be.false;
+
+      const sortParam = method.parameters[1];
+      expect(sortParam.name).to.equal('sort');
+      expect((sortParam.type as Tsoa.UnionType).types).to.deep.equal([
+        { dataType: 'enum', enums: ['ASC'] },
+        { dataType: 'enum', enums: ['DESC'] },
+      ]);
+      expect(sortParam.required).to.be.false;
+
+      const limitParam = method.parameters[2];
+      expect(limitParam.name).to.equal('limit');
+      expect(limitParam.type.dataType).to.equal('double');
+      expect(limitParam.required).to.be.true;
+
+      const beforeParam = method.parameters[3];
+      expect(beforeParam.name).to.equal('before');
+      expect(beforeParam.type.dataType).to.equal('double');
+      expect(beforeParam.required).to.be.false;
+
+      const afterParam = method.parameters[4];
+      expect(afterParam.name).to.equal('after');
+      expect(afterParam.type.dataType).to.equal('double');
+      expect(afterParam.required).to.be.false;
+    });
   });
 
   describe('HiddenMethodGenerator', () => {
